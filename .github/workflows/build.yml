@@ -14,18 +14,18 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Android Platform 35
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0"
-
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.x'
+          flutter-version: '3.24.x'
           channel: 'stable'
 
-      - name: Generate Android Scaffolding
+      - name: Accept Android Licenses & Download SDK 35
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Scaffold Android project
         run: |
           mkdir temp_app
           cd temp_app
@@ -34,25 +34,17 @@ jobs:
           cd ..
           rm -rf temp_app
 
-      - name: Configure Android Project
+      - name: Set Android Configuration & Permissions
         run: |
-          # 1. Update Kotlin to 1.9.22 in settings.gradle
-          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/' android/settings.gradle || true
+          # Point android local.properties to the runner SDK path
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
-          # 2. Update compileSdk and minSdk in app/build.gradle
-          sed -i 's/compileSdkVersion .*/compileSdkVersion 35/' android/app/build.gradle || true
-          sed -i 's/compileSdk = .*/compileSdk = 35/' android/app/build.gradle || true
-          sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 35/' android/app/build.gradle || true
-          sed -i 's/targetSdkVersion .*/targetSdkVersion 35/' android/app/build.gradle || true
-          sed -i 's/targetSdk = .*/targetSdk = 35/' android/app/build.gradle || true
+          # Set minSdk to 23
           sed -i 's/minSdkVersion .*/minSdkVersion 23/' android/app/build.gradle || true
           sed -i 's/minSdk = .*/minSdk = 23/' android/app/build.gradle || true
           sed -i 's/minSdk flutter.minSdkVersion/minSdk 23/' android/app/build.gradle || true
 
-          # 3. Add root project ext.kotlin_version fallback
-          sed -i '/buildscript {/a \    ext.kotlin_version = "1.9.22"' android/build.gradle || true
-
-          # 4. Inject required permissions
+          # Inject runtime hardware permissions
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
