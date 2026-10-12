@@ -14,6 +14,11 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Install Android 35 SDK Platform
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -29,7 +34,7 @@ jobs:
           cd ..
           rm -rf temp_app
 
-      - name: Fix Android SDK 35 & Permissions
+      - name: Configure Android SDK versions & permissions
         run: |
           sed -i 's/compileSdkVersion .*/compileSdkVersion 35/' android/app/build.gradle || true
           sed -i 's/compileSdk = .*/compileSdk = 35/' android/app/build.gradle || true
