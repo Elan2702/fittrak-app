@@ -44,7 +44,7 @@ class MainDashboard extends StatefulWidget {
 class _MainDashboardState extends State<MainDashboard> {
   int _currentIndex = 0;
 
-  // --- Profile & Metabolic Data ---
+  // Metabolic & Profile variables
   String _sex = 'Male';
   int _age = 25;
   double _heightCm = 175.0;
@@ -55,7 +55,7 @@ class _MainDashboardState extends State<MainDashboard> {
   int _targetCalories = 2100;
   int _targetSteps = 10000;
 
-  // --- Pedometer & GPS Sensors ---
+  // Sensor variables
   int _displaySteps = 0;
   int _baselineSteps = -1;
   int _transitIgnoredSteps = 0;
@@ -68,7 +68,7 @@ class _MainDashboardState extends State<MainDashboard> {
   final List<LatLng> _routePoints = [];
   LatLng _currentLocation = const LatLng(12.9716, 77.5946);
 
-  // --- Nutrition & Meals ---
+  // Nutrition entries
   bool _isAiAnalyzing = false;
   final List<Map<String, dynamic>> _meals = [
     {"name": "Boiled Eggs (3) & Toast", "calories": 310, "protein": 21, "carbs": 26, "fat": 11},
@@ -83,7 +83,6 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   void _recalculateMetabolism() {
-    // Mifflin-St Jeor Equation for BMR
     double bmr;
     if (_sex == 'Male') {
       bmr = (10 * _weightKg) + (6.25 * _heightCm) - (5 * _age) + 5;
@@ -97,7 +96,6 @@ class _MainDashboardState extends State<MainDashboard> {
     if (_activityLevel.startsWith('Very Active')) multiplier = 1.725;
 
     double tdee = bmr * multiplier;
-
     if (_goal.startsWith('Fat Loss')) {
       tdee -= 500;
     } else if (_goal.startsWith('Muscle Gain')) {
@@ -164,7 +162,6 @@ class _MainDashboardState extends State<MainDashboard> {
     super.dispose();
   }
 
-  // Weight-calibrated calories burned calculation
   double get _burnedStepCalories => _displaySteps * (_weightKg * 0.00057);
   double get _distanceKm => (_displaySteps * 0.75) / 1000;
 
@@ -181,7 +178,7 @@ class _MainDashboardState extends State<MainDashboard> {
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$geminiApiKey',
       );
 
-      final prompt = 'Analyze meal: "$foodQuery". Return ONLY valid JSON format: {"name": "Short summary", "calories": 450, "protein": 25, "carbs": 50, "fat": 15}';
+      final prompt = 'Analyze: "$foodQuery". Return ONLY valid JSON: {"name": "Summary", "calories": 400, "protein": 20, "carbs": 40, "fat": 10}';
 
       final response = await http.post(
         url,
@@ -219,8 +216,6 @@ class _MainDashboardState extends State<MainDashboard> {
       if (mounted) setState(() => _isAiAnalyzing = false);
     }
   }
-
-  // --- DIALOGS ---
 
   void _editStepGoalDialog() {
     final ctrl = TextEditingController(text: '$_targetSteps');
@@ -262,7 +257,7 @@ class _MainDashboardState extends State<MainDashboard> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Add Meal / Food'),
+        title: const Text('Add Meal Manually'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -311,7 +306,7 @@ class _MainDashboardState extends State<MainDashboard> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: foodCtrl, decoration: const InputDecoration(labelText: 'Describe meal (e.g. 2 parathas with curd)')),
+            TextField(controller: foodCtrl, decoration: const InputDecoration(labelText: 'Describe meal (e.g. 2 dosa with sambar)')),
             const SizedBox(height: 8),
             TextField(controller: keyCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Gemini API Key')),
           ],
@@ -329,6 +324,56 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _metricCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      width: 105,
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 6),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+
+  Widget _macroColumn(String title, String val, Color color) {
+    return Column(
+      children: [
+        Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(val, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _sliderTile(String title, String displayVal, double value, double min, double max, ValueChanged<double> onChanged) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(title, style: const TextStyle(fontSize: 15)),
+            Text(displayVal, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
+          ],
+        ),
+        Slider(
+          value: value,
+          min: min,
+          max: max,
+          activeColor: const Color(0xFF00E676),
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 
@@ -352,13 +397,12 @@ class _MainDashboardState extends State<MainDashboard> {
           NavigationDestination(icon: Icon(Icons.directions_walk), label: 'Activity'),
           NavigationDestination(icon: Icon(Icons.bolt), label: 'Nutrition'),
           NavigationDestination(icon: Icon(Icons.explore), label: 'GPS'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Profile & Goal'),
+          NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );
   }
 
-  // --- SCREEN 1: STEP TRACKER & CALORIES BURNED ---
   Widget _buildPedometerScreen() {
     double progress = (_displaySteps / _targetSteps).clamp(0.0, 1.0);
 
@@ -441,7 +485,7 @@ class _MainDashboardState extends State<MainDashboard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
                         Text('Transit Pause Lock', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        Text('Ignores steps while on motorbike, car, or bus', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                        Text('Ignores steps while on vehicle/bike', style: TextStyle(color: Colors.grey, fontSize: 11)),
                       ],
                     ),
                   ),
@@ -459,7 +503,6 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  // --- SCREEN 2: NUTRITION & CALORIE / MACRO ENGINE ---
   Widget _buildNutritionScreen() {
     int netCalories = totalFoodCalories - _burnedStepCalories.round();
     int remaining = _targetCalories - totalFoodCalories;
@@ -476,12 +519,12 @@ class _MainDashboardState extends State<MainDashboard> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.auto_awesome, color: Color(0xFF00E676)),
-                    tooltip: 'AI Meal Scan',
+                    tooltip: 'AI Scan',
                     onPressed: _openAiMealDialog,
                   ),
                   IconButton(
                     icon: const Icon(Icons.add_circle, color: Color(0xFF00E676), size: 28),
-                    tooltip: 'Add Meal Manually',
+                    tooltip: 'Add Food',
                     onPressed: _manualAddMealDialog,
                   ),
                 ],
@@ -520,37 +563,4 @@ class _MainDashboardState extends State<MainDashboard> {
                           Text('Burned: -${_burnedStepCalories.round()} kcal', style: const TextStyle(color: Colors.orangeAccent)),
                           Text('Net: $netCalories kcal', style: const TextStyle(color: Colors.grey)),
                         ],
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 24, color: Colors.white12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _macroColumn('Carbs', '${totalCarbs}g', Colors.orangeAccent),
-                      _macroColumn('Protein', '${totalProtein}g', Colors.lightBlueAccent),
-                      _macroColumn('Fats', '${totalFat}g', Colors.pinkAccent),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Logged Meals', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              TextButton.icon(
-                onPressed: _manualAddMealDialog,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Food'),
-              ),
-            ],
-          ),
-          if (_isAiAnalyzing)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: CircularProgressIndicator(color: Color(0xFF00E676))),
-            ),
-   
+             
