@@ -17,7 +17,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.x'
+          flutter-version: '3.22.x'
           channel: 'stable'
 
       - name: Accept Android Licenses & Download SDK 35
@@ -34,17 +34,30 @@ jobs:
           cd ..
           rm -rf temp_app
 
-      - name: Set Android Configuration & Permissions
+      - name: Configure Compatibility for Older Plugins
         run: |
-          # Point android local.properties to the runner SDK path
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
-          # Set minSdk to 23
-          sed -i 's/minSdkVersion .*/minSdkVersion 23/' android/app/build.gradle || true
-          sed -i 's/minSdk = .*/minSdk = 23/' android/app/build.gradle || true
-          sed -i 's/minSdk flutter.minSdkVersion/minSdk 23/' android/app/build.gradle || true
+          # Fix geolocator / pedometer compileSdk & minSdk for subprojects
+          cat << 'EOF' >> android/build.gradle
 
-          # Inject runtime hardware permissions
+          subprojects {
+              afterEvaluate { project ->
+                  if (project.hasProperty("android")) {
+                      android {
+                          compileSdkVersion 35
+                          buildToolsVersion "35.0.0"
+                          defaultConfig {
+                              minSdkVersion 23
+                              targetSdkVersion 35
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # Inject runtime permissions into manifest
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
