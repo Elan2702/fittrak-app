@@ -1,12 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:pedometer/pedometer.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:http/http.dart' as http;
 
 void main() => runApp(const FitTrackApp());
 
@@ -21,10 +16,32 @@ class FitTrackApp extends StatelessWidget {
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF121212),
         primaryColor: const Color(0xFF00E676),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF00E676),
+          secondary: Color(0xFF2979FF),
+        ),
       ),
       home: const MainDashboard(),
     );
   }
+}
+
+class MealItem {
+  final String name;
+  final String category; // Breakfast, Lunch, Snacks, Dinner
+  final int calories;
+  final int carbs;
+  final int protein;
+  final int fat;
+
+  MealItem({
+    required this.name,
+    required this.category,
+    required this.calories,
+    required this.carbs,
+    required this.protein,
+    required this.fat,
+  });
 }
 
 class MainDashboard extends StatefulWidget {
@@ -34,211 +51,271 @@ class MainDashboard extends StatefulWidget {
 }
 
 class _MainDashboardState extends State<MainDashboard> {
-  int _currentIndex = 0;
-  String _sex = 'Male';
-  int _age = 25;
-  double _heightCm = 175.0;
-  double _weightKg = 70.0;
-  String _activityLevel = 'Moderate (3-5 days/wk)';
-  String _goal = 'Fat Loss (-500 kcal)';
-  int _targetCalories = 2100;
-  int _targetSteps = 10000;
+  int _currentIndex = 1; // Default to Nutrition tab
 
+  // Profile Data
+  String _sex = 'Male';
+  int _age = 26;
+  int _heightCm = 182;
+  int _weightKg = 92;
+  int _goalWeightKg = 80;
+  String _activityLevel = 'Moderate (3-5 days/wk)';
+  String _fitnessGoal = 'Fat Loss (-500 kcal)';
+
+  // Calories & Steps
+  int _targetSteps = 10000;
   int _displaySteps = 0;
   int _baselineSteps = -1;
-  int _transitIgnoredSteps = 0;
-  bool _isTransitPaused = false;
-  double _currentSpeedKmh = 0.0;
+  StreamSubscription<StepCount>? _stepSub;
 
-  StreamSubscription<StepCount>? _stepSubscription;
-  StreamSubscription<Position>? _positionSubscription;
-  final List<LatLng> _routePoints = [];
-  LatLng _currentLocation = const LatLng(12.9716, 77.5946);
-
-  bool _isAiAnalyzing = false;
-  final List<Map<String, dynamic>> _meals = [
-    {"name": "Boiled Eggs (3) & Toast", "calories": 310, "protein": 21, "carbs": 26, "fat": 11},
-    {"name": "Paneer & Roti", "calories": 480, "protein": 24, "carbs": 42, "fat": 21},
+  final List<MealItem> _meals = [
+    MealItem(name: "2 Idli with Sambar", category: "Breakfast", calories: 180, carbs: 32, protein: 6, fat: 2),
+    MealItem(name: "2 Roti with Paneer Curry", category: "Lunch", calories: 460, carbs: 48, protein: 22, fat: 18),
   ];
 
   @override
   void initState() {
     super.initState();
-    _recalculateMetabolism();
     _initSensors();
   }
 
-  void _recalculateMetabolism() {
-    double bmr = (_sex == 'Male')
-        ? (10 * _weightKg) + (6.25 * _heightCm) - (5 * _age) + 5
-        : (10 * _weightKg) + (6.25 * _heightCm) - (5 * _age) - 161;
-    double mult = 1.2;
-    if (_activityLevel.startsWith('Light')) mult = 1.375;
-    if (_activityLevel.startsWith('Moderate')) mult = 1.55;
-    if (_activityLevel.startsWith('Very Active')) mult = 1.725;
-    double tdee = bmr * mult;
-    if (_goal.startsWith('Fat Loss')) tdee -= 500;
-    if (_goal.startsWith('Muscle Gain')) tdee += 300;
-    setState(() => _targetCalories = tdee.round().clamp(1200, 5000));
-  }
-
   Future<void> _initSensors() async {
-    await [Permission.activityRecognition, Permission.location].request();
-    _stepSubscription = Pedometer.stepCountStream.listen((StepCount event) {
+    await Permission.activityRecognition.request();
+    _stepSub = Pedometer.stepCountStream.listen((StepCount event) {
       if (_baselineSteps == -1) _baselineSteps = event.steps;
       int delta = event.steps - _baselineSteps;
-      if (_isTransitPaused || _currentSpeedKmh > 20.0) {
-        _transitIgnoredSteps = delta - _displaySteps;
-      } else {
-        setState(() => _displaySteps = (delta - _transitIgnoredSteps).clamp(0, 999999));
-      }
-    });
-    _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 4),
-    ).listen((Position pos) {
       setState(() {
-        _currentSpeedKmh = pos.speed * 3.6;
-        _currentLocation = LatLng(pos.latitude, pos.longitude);
-        _routePoints.add(_currentLocation);
+        _displaySteps = delta.clamp(0, 999999);
       });
-    });
+    }, onError: (_) {});
   }
 
   @override
   void dispose() {
-    _stepSubscription?.cancel();
-    _positionSubscription?.cancel();
+    _stepSub?.cancel();
     super.dispose();
   }
 
-  double get _burnedStepCalories => _displaySteps * (_weightKg * 0.00057);
-  double get _distanceKm => (_displaySteps * 0.75) / 1000;
-  int get totalFoodCalories => _meals.fold(0, (s, m) => s + (m['calories'] as int));
-  int get totalProtein => _meals.fold(0, (s, m) => s + (m['protein'] as int));
-  int get totalCarbs => _meals.fold(0, (s, m) => s + (m['carbs'] as int));
-  int get totalFat => _meals.fold(0, (s, m) => s + (m['fat'] as int));
-
-  Future<void> _analyzeMealWithAi(String foodQuery, String apiKey) async {
-    setState(() => _isAiAnalyzing = true);
-    try {
-      final res = await http.post(
-        Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "contents": [{"parts": [{"text": 'Analyze meal "$foodQuery". Return ONLY JSON: {"name": "meal summary", "calories": 400, "protein": 20, "carbs": 40, "fat": 10}'}]}]
-        }),
-      );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        String txt = data['candidates'][0]['content']['parts'][0]['text'].replaceAll('```json', '').replaceAll('```', '').trim();
-        final p = jsonDecode(txt);
-        setState(() => _meals.add({
-          "name": p['name'] ?? foodQuery,
-          "calories": (p['calories'] as num).toInt(),
-          "protein": (p['protein'] as num).toInt(),
-          "carbs": (p['carbs'] as num).toInt(),
-          "fat": (p['fat'] as num).toInt(),
-        }));
-      }
-    } catch (_) {} finally {
-      if (mounted) setState(() => _isAiAnalyzing = false);
+  // --- Metabolic Calculations ---
+  double get _bmr {
+    if (_sex == 'Male') {
+      return (10 * _weightKg) + (6.25 * _heightCm) - (5 * _age) + 5;
+    } else {
+      return (10 * _weightKg) + (6.25 * _heightCm) - (5 * _age) - 161;
     }
   }
-    void _editStepGoalDialog() {
-    final c = TextEditingController(text: '$_targetSteps');
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF1E1E1E),
-      title: const Text('Set Daily Step Goal'),
-      content: TextField(controller: c, keyboardType: TextInputType.number),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        ElevatedButton(onPressed: () {
-          final v = int.tryParse(c.text);
-          if (v != null && v > 0) setState(() => _targetSteps = v);
-          Navigator.pop(ctx);
-        }, child: const Text('Save')),
-      ],
-    ));
+
+  double get _maintenanceCalories {
+    double mult = 1.2;
+    if (_activityLevel.startsWith('Light')) mult = 1.375;
+    if (_activityLevel.startsWith('Moderate')) mult = 1.55;
+    if (_activityLevel.startsWith('Very Active')) mult = 1.725;
+    return _bmr * mult;
   }
 
-  void _manualAddMealDialog() {
-    final n = TextEditingController(), cal = TextEditingController();
-    final p = TextEditingController(), c = TextEditingController(), f = TextEditingController();
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF1E1E1E),
-      title: const Text('Add Meal'),
-      content: SingleChildScrollView(
-        child: Column(
-          children: [
-            TextField(controller: n, decoration: const InputDecoration(labelText: 'Food Name')),
-            TextField(controller: cal, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Calories (kcal)')),
-            TextField(controller: p, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Protein (g)')),
-            TextField(controller: c, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Carbs (g)')),
-            TextField(controller: f, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Fats (g)')),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        ElevatedButton(onPressed: () {
-          if (n.text.isNotEmpty && cal.text.isNotEmpty) {
-            setState(() => _meals.add({
-              "name": n.text,
-              "calories": int.tryParse(cal.text) ?? 0,
-              "protein": int.tryParse(p.text) ?? 0,
-              "carbs": int.tryParse(c.text) ?? 0,
-              "fat": int.tryParse(f.text) ?? 0,
-            }));
-            Navigator.pop(ctx);
-          }
-        }, child: const Text('Add')),
-      ],
-    ));
+  int get _deficitCalories => (_maintenanceCalories - 500).round();
+  int get _surplusCalories => (_maintenanceCalories + 300).round();
+
+  int get _goalCalories {
+    if (_fitnessGoal.startsWith('Fat Loss')) return _deficitCalories;
+    if (_fitnessGoal.startsWith('Muscle Gain')) return _surplusCalories;
+    return _maintenanceCalories.round();
   }
 
-  void _openAiMealDialog() {
-    final f = TextEditingController(), k = TextEditingController();
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF1E1E1E),
-      title: const Text('AI Meal Breakdown'),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextField(controller: f, decoration: const InputDecoration(labelText: 'Describe meal (e.g. 2 eggs)')),
-        TextField(controller: k, obscureText: true, decoration: const InputDecoration(labelText: 'Gemini API Key')),
-      ]),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        ElevatedButton(onPressed: () {
-          Navigator.pop(ctx);
-          if (f.text.isNotEmpty && k.text.isNotEmpty) _analyzeMealWithAi(f.text, k.text);
-        }, child: const Text('Analyze')),
-      ],
-    ));
+  double get _bmi {
+    double heightM = _heightCm / 100;
+    return _weightKg / (heightM * heightM);
   }
 
-  Widget _metricCard(String label, String value, IconData icon, Color color) {
-    return Container(
-      width: 100, padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
-      child: Column(children: [
-        Icon(icon, color: color, size: 22),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-      ]),
+  String get _bmiCategory {
+    if (_bmi < 18.5) return 'Underweight';
+    if (_bmi < 24.9) return 'Normal';
+    if (_bmi < 29.9) return 'Overweight';
+    return 'Obese';
+  }
+
+  double get _burnedCalories => _displaySteps * (_weightKg * 0.00057);
+  double get _distanceKm => (_displaySteps * 0.75) / 1000;
+
+  int get _totalCaloriesConsumed => _meals.fold(0, (s, m) => s + m.calories);
+  int get _totalCarbs => _meals.fold(0, (s, m) => s + m.carbs);
+  int get _totalProtein => _meals.fold(0, (s, m) => s + m.protein);
+  int get _totalFat => _meals.fold(0, (s, m) => s + m.fat);
+
+  // --- AI Indian Food Macro Estimator ---
+  MealItem _estimateIndianFoodMacros(String foodText, String category) {
+    String lower = foodText.toLowerCase();
+    int qty = 1;
+    final match = RegExp(r'\b(\d+)\b').firstMatch(lower);
+    if (match != null) {
+      qty = int.tryParse(match.group(1)!) ?? 1;
+    }
+
+    int cal = 150, p = 5, c = 25, f = 4;
+
+    if (lower.contains('roti') || lower.contains('chapati') || lower.contains('phulka')) {
+      cal = 100 * qty; p = 3 * qty; c = 20 * qty; f = 1 * qty;
+    } else if (lower.contains('paratha')) {
+      cal = 260 * qty; p = 5 * qty; c = 32 * qty; f = 12 * qty;
+    } else if (lower.contains('rice') || lower.contains('chawal')) {
+      cal = 200 * qty; p = 4 * qty; c = 44 * qty; f = 1 * qty;
+    } else if (lower.contains('biryani')) {
+      cal = 420 * qty; p = 18 * qty; c = 50 * qty; f = 16 * qty;
+    } else if (lower.contains('idli')) {
+      cal = 65 * qty; p = 2 * qty; c = 12 * qty; f = 1 * qty;
+    } else if (lower.contains('dosa')) {
+      cal = 160 * qty; p = 4 * qty; c = 24 * qty; f = 6 * qty;
+    } else if (lower.contains('dal') || lower.contains('sambar')) {
+      cal = 140 * qty; p = 8 * qty; c = 20 * qty; f = 3 * qty;
+    } else if (lower.contains('paneer')) {
+      cal = 290 * qty; p = 18 * qty; c = 8 * qty; f = 22 * qty;
+    } else if (lower.contains('chicken')) {
+      cal = 240 * qty; p = 28 * qty; c = 2 * qty; f = 12 * qty;
+    } else if (lower.contains('egg')) {
+      cal = 78 * qty; p = 6 * qty; c = 1 * qty; f = 5 * qty;
+    } else if (lower.contains('curd') || lower.contains('yogurt')) {
+      cal = 100 * qty; p = 4 * qty; c = 6 * qty; f = 4 * qty;
+    } else if (lower.contains('milk') || lower.contains('chai') || lower.contains('tea') || lower.contains('coffee')) {
+      cal = 90 * qty; p = 3 * qty; c = 10 * qty; f = 3 * qty;
+    } else if (lower.contains('samosa') || lower.contains('vada')) {
+      cal = 260 * qty; p = 4 * qty; c = 28 * qty; f = 15 * qty;
+    } else {
+      cal = (160 * qty).clamp(50, 900);
+      p = (6 * qty).clamp(2, 60);
+      c = (24 * qty).clamp(5, 120);
+      f = (5 * qty).clamp(1, 45);
+    }
+
+    return MealItem(
+      name: foodText,
+      category: category,
+      calories: cal,
+      carbs: c,
+      protein: p,
+      fat: f,
     );
   }
 
-  Widget _macroCol(String title, String val, Color c) => Column(children: [
-    Text(title, style: TextStyle(color: c, fontWeight: FontWeight.bold)),
-    Text(val, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-  ]);
+  void _showAddMealSheet() {
+    final foodCtrl = TextEditingController();
+    String selectedCategory = 'Breakfast';
 
-  Widget _slider(String title, String dVal, double val, double min, double max, ValueChanged<double> fn) => Column(children: [
-    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Text(title), Text(dVal, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
-    ]),
-    Slider(value: val, min: min, max: max, activeColor: const Color(0xFF00E676), onChanged: fn),
-  ]);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Add Meal (AI Estimator)', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              const Text('Enter food and quantity (e.g. 2 Dosa with Sambar, 3 Boiled Eggs)', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: selectedCategory,
+                dropdownColor: const Color(0xFF2C2C2C),
+                decoration: const InputDecoration(labelText: 'Meal Category', border: OutlineInputBorder()),
+                items: ['Breakfast', 'Lunch', 'Snacks', 'Dinner'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                onChanged: (val) => setSheetState(() => selectedCategory = val!),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: foodCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Food Name & Quantity',
+                  hintText: 'e.g. 2 Roti and Chicken Curry',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00E676),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('Calculate Macros & Add Meal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  onPressed: () {
+                    if (foodCtrl.text.trim().isNotEmpty) {
+                      final item = _estimateIndianFoodMacros(foodCtrl.text.trim(), selectedCategory);
+                      setState(() => _meals.add(item));
+                      Navigator.pop(ctx);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showNumberPickerDialog({
+    required String title,
+    required int currentValue,
+    required int min,
+    required int max,
+    required String unit,
+    required ValueChanged<int> onSelected,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SizedBox(
+        height: 320,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Select $title ($unit)', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.builder(
+                itemCount: max - min + 1,
+                itemBuilder: (context, idx) {
+                  int val = min + idx;
+                  bool isSelected = val == currentValue;
+                  return ListTile(
+                    title: Center(
+                      child: Text(
+                        '$val $unit',
+                        style: TextStyle(
+                          fontSize: isSelected ? 20 : 16,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected ? const Color(0xFF00E676) : Colors.white70,
+                        ),
+                      ),
+                    ),
+                    onTap: () {
+                      onSelected(val);
+                      Navigator.pop(ctx);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -248,192 +325,215 @@ class _MainDashboardState extends State<MainDashboard> {
         children: [
           _buildActivityScreen(),
           _buildNutritionScreen(),
-          _buildGpsScreen(),
           _buildProfileScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         backgroundColor: const Color(0xFF1E1E1E),
-        onDestinationSelected: (i) => setState(() => _currentIndex = i),
+        onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.directions_walk), label: 'Activity'),
           NavigationDestination(icon: Icon(Icons.bolt), label: 'Nutrition'),
-          NavigationDestination(icon: Icon(Icons.explore), label: 'GPS'),
           NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );
   }
 
+  // --- TAB 1: ACTIVITY TRACKER ---
   Widget _buildActivityScreen() {
+    double progress = (_displaySteps / _targetSteps).clamp(0.0, 1.0);
+
     return SafeArea(
-      child: Padding(
+      child: ListView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('Activity Tracker', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              Chip(label: Text(_isTransitPaused ? 'Transit Paused' : 'Active')),
-            ]),
-            const SizedBox(height: 25),
-            Center(
-              child: Stack(alignment: Alignment.center, children: [
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Text('Daily Activity Tracking', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              Chip(
+                avatar: Icon(Icons.directions_walk, color: Colors.greenAccent, size: 18),
+                label: Text('Active'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 30),
+          Center(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
                 SizedBox(
-                  width: 200, height: 200,
+                  width: 220,
+                  height: 220,
                   child: CircularProgressIndicator(
-                    value: (_displaySteps / _targetSteps).clamp(0.0, 1.0),
-                    strokeWidth: 14,
-                    color: const Color(0xFF00E676),
+                    value: progress,
+                    strokeWidth: 16,
                     backgroundColor: Colors.white12,
+                    color: const Color(0xFF00E676),
                   ),
                 ),
-                Column(children: [
-                  Text('$_displaySteps', style: const TextStyle(fontSize: 44, fontWeight: FontWeight.bold)),
-                  InkWell(
-                    onTap: _editStepGoalDialog,
-                    child: Text('Goal: $_targetSteps ✎', style: const TextStyle(color: Colors.grey)),
-                  ),
-                ]),
-              ]),
+                Column(
+                  children: [
+                    Text('$_displaySteps', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
+                    InkWell(
+                      onTap: () {
+                        _showNumberPickerDialog(
+                          title: 'Step Goal',
+                          currentValue: _targetSteps,
+                          min: 2000,
+                          max: 30000,
+                          unit: 'steps',
+                          onSelected: (v) => setState(() => _targetSteps = v),
+                        );
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Goal: $_targetSteps steps', style: const TextStyle(color: Colors.grey)),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.edit, size: 14, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 30),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-              _metricCard('Burned', '${_burnedStepCalories.round()} kcal', Icons.local_fire_department, Colors.orangeAccent),
-              _metricCard('Distance', '${_distanceKm.toStringAsFixed(2)} km', Icons.straighten, Colors.lightBlueAccent),
-              _metricCard('Speed', '${_currentSpeedKmh.toStringAsFixed(1)} km/h', Icons.speed, Colors.greenAccent),
-            ]),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(12)),
-              child: Row(children: [
-                const Icon(Icons.commute, color: Colors.amber),
-                const SizedBox(width: 10),
-                const Expanded(child: Text('Transit Pause (Vehicles/Bus)')),
-                Switch(value: _isTransitPaused, onChanged: (v) => setState(() => _isTransitPaused = v)),
-              ]),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 36),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _metricBox('Burned', '${_burnedCalories.round()} kcal', Icons.local_fire_department, Colors.orangeAccent),
+              _metricBox('Distance', '${_distanceKm.toStringAsFixed(2)} km', Icons.straighten, Colors.lightBlueAccent),
+              _metricBox('Goal Progress', '${(progress * 100).toInt()}%', Icons.flag, const Color(0xFF00E676)),
+            ],
+          ),
+        ],
       ),
     );
   }
 
+  // --- TAB 2: NUTRITION & INDIAN FOOD MACROS ---
   Widget _buildNutritionScreen() {
-    int rem = _targetCalories - totalFoodCalories;
+    int remaining = _goalCalories - _totalCaloriesConsumed;
+
     return SafeArea(
-      child: ListView(padding: const EdgeInsets.all(16), children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('Macro Engine', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          Row(children: [
-            IconButton(icon: const Icon(Icons.auto_awesome, color: Color(0xFF00E676)), onPressed: _openAiMealDialog),
-            IconButton(icon: const Icon(Icons.add_circle, color: Color(0xFF00E676), size: 28), onPressed: _manualAddMealDialog),
-          ]),
-        ]),
-        Card(
-          color: const Color(0xFF1E1E1E),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('$rem', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: rem >= 0 ? const Color(0xFF00E676) : Colors.redAccent)),
-                  const Text('Remaining kcal', style: TextStyle(color: Colors.grey)),
-                ]),
-                Text('Target: $_targetCalories\nBurned: -${_burnedStepCalories.round()}', textAlign: TextAlign.right),
-              ]),
-              const Divider(color: Colors.white12),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                _macroCol('Carbs', '${totalCarbs}g', Colors.orangeAccent),
-                _macroCol('Protein', '${totalProtein}g', Colors.lightBlueAccent),
-                _macroCol('Fats', '${totalFat}g', Colors.pinkAccent),
-              ]),
-            ]),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Macro Engine', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00E676),
+                  foregroundColor: Colors.black,
+                ),
+                icon: const Icon(Icons.add, size: 20),
+                label: const Text('Add Meal', style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: _showAddMealSheet,
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 16),
-        ..._meals.asMap().entries.map((e) => Card(
-          color: const Color(0xFF1E1E1E),
-          child: ListTile(
-            title: Text(e.value['name']),
-            subtitle: Text('P:${e.value['protein']}g C:${e.value['carbs']}g F:${e.value['fat']}g'),
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text('${e.value['calories']} kcal', style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold)),
-              IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent), onPressed: () => setState(() => _meals.removeAt(e.key))),
-            ]),
+          const SizedBox(height: 14),
+          Card(
+            color: const Color(0xFF1E1E1E),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$remaining',
+                            style: TextStyle(
+                              fontSize: 34,
+                              fontWeight: FontWeight.bold,
+                              color: remaining >= 0 ? const Color(0xFF00E676) : Colors.redAccent,
+                            ),
+                          ),
+                          const Text('Remaining kcal', style: TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('Goal: $_goalCalories kcal', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('Burned: -${_burnedCalories.round()} kcal', style: const TextStyle(color: Colors.orangeAccent)),
+                          Text('Consumed: $_totalCaloriesConsumed kcal', style: const TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24, color: Colors.white12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _macroColumn('Carbs', '${_totalCarbs}g', Colors.orangeAccent),
+                      _macroColumn('Protein', '${_totalProtein}g', Colors.lightBlueAccent),
+                      _macroColumn('Fats', '${_totalFat}g', Colors.pinkAccent),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-        )),
-      ]),
+          const SizedBox(height: 20),
+          ...['Breakfast', 'Lunch', 'Snacks', 'Dinner'].map((cat) => _buildMealCategorySection(cat)),
+        ],
+      ),
     );
   }
 
-  Widget _buildGpsScreen() {
-    return FlutterMap(
-      options: MapOptions(initialCenter: _currentLocation, initialZoom: 16),
+  Widget _buildMealCategorySection(String category) {
+    final categoryMeals = _meals.where((m) => m.category == category).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.fittrack.ai'),
-        PolylineLayer(polylines: [Polyline(points: _routePoints, strokeWidth: 5, color: const Color(0xFF2979FF))]),
-        MarkerLayer(markers: [Marker(point: _currentLocation, child: const Icon(Icons.navigation, color: Colors.blueAccent))]),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Text(category, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.greenAccent)),
+        ),
+        if (categoryMeals.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(10)),
+            child: Text('No $category logged yet.', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+          )
+        else
+          ...categoryMeals.map((meal) {
+            return Card(
+              color: const Color(0xFF1E1E1E),
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                title: Text(meal.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text('P: ${meal.protein}g | C: ${meal.carbs}g | F: ${meal.fat}g'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${meal.calories} kcal', style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold)),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                      onPressed: () => setState(() => _meals.remove(meal)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
       ],
     );
   }
 
-  Widget _buildProfileScreen() {
-    return SafeArea(
-      child: ListView(padding: const EdgeInsets.all(16), children: [
-        const Text('Profile & Metabolism', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        Card(
-          color: const Color(0xFF1E1E1E),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(children: [
-              DropdownButton<String>(
-                isExpanded: true,
-                value: _sex,
-                items: ['Male', 'Female'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-                onChanged: (v) { if (v != null) { setState(() => _sex = v); _recalculateMetabolism(); } },
-              ),
-              _slider('Age', '$_age yrs', _age.toDouble(), 15, 80, (v) { setState(() => _age = v.toInt()); _recalculateMetabolism(); }),
-              _slider('Height', '${_heightCm.toInt()} cm', _heightCm, 120, 220, (v) { setState(() => _heightCm = v); _recalculateMetabolism(); }),
-              _slider('Weight', '${_weightKg.toStringAsFixed(1)} kg', _weightKg, 35, 150, (v) { setState(() => _weightKg = v); _recalculateMetabolism(); }),
-            ]),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          color: const Color(0xFF1E1E1E),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(children: [
-              DropdownButton<String>(
-                isExpanded: true,
-                value: _activityLevel,
-                items: ['Sedentary (Little/no exercise)', 'Light (1-3 days/wk)', 'Moderate (3-5 days/wk)', 'Very Active (6-7 days/wk)']
-                    .map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-                onChanged: (v) { if (v != null) { setState(() => _activityLevel = v); _recalculateMetabolism(); } },
-              ),
-              DropdownButton<String>(
-                isExpanded: true,
-                value: _goal,
-                items: ['Fat Loss (-500 kcal)', 'Maintain Weight', 'Muscle Gain (+300 kcal)']
-                    .map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-                onChanged: (v) { if (v != null) { setState(() => _goal = v); _recalculateMetabolism(); } },
-              ),
-            ]),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: const Color(0xFF00E676).withOpacity(0.12), borderRadius: BorderRadius.circular(16)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('Daily Budget Target:', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('$_targetCalories kcal', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
-          ]),
-        ),
-      ]),
-    );
-  }
-}
+  // --- TAB 3: PROFILE, BMI & 
