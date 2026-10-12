@@ -14,12 +14,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # Fix folder permissions and install Android 35 using sudo
+      # Install Android 35 and grant full read/write/execute permissions to all tools
       - name: Install Android Platform 35
         run: |
           sudo chown -R $USER:$USER /usr/local/lib/android/sdk
           yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
           /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          sudo chmod -R 777 /usr/local/lib/android/sdk
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
