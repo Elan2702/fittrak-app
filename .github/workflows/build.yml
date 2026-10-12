@@ -14,16 +14,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # Install Android 35 directly into the exact path Gradle looks for
+      - name: Install Android Platform 35
+        run: |
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/usr/local/lib/android/sdk --licenses || true
+          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/usr/local/lib/android/sdk "platforms;android-35" "build-tools;35.0.0"
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.x'
           channel: 'stable'
-
-      - name: Install Android Platform 35
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Scaffold Android project
         run: |
@@ -36,17 +37,17 @@ jobs:
 
       - name: Configure Android Project
         run: |
-          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+          echo "sdk.dir=/usr/local/lib/android/sdk" > android/local.properties
 
-          # Safely configure app build.gradle
+          # Update app build.gradle values
           sed -i 's/compileSdkVersion .*/compileSdkVersion 35/' android/app/build.gradle || true
           sed -i 's/compileSdk = .*/compileSdk = 35/' android/app/build.gradle || true
           sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 35/' android/app/build.gradle || true
+          sed -i 's/targetSdkVersion .*/targetSdkVersion 35/' android/app/build.gradle || true
+          sed -i 's/targetSdk = .*/targetSdk = 35/' android/app/build.gradle || true
           sed -i 's/minSdkVersion .*/minSdkVersion 23/' android/app/build.gradle || true
           sed -i 's/minSdk = .*/minSdk = 23/' android/app/build.gradle || true
           sed -i 's/minSdk flutter.minSdkVersion/minSdk 23/' android/app/build.gradle || true
-          sed -i 's/targetSdkVersion .*/targetSdkVersion 35/' android/app/build.gradle || true
-          sed -i 's/targetSdk = .*/targetSdk = 35/' android/app/build.gradle || true
 
           # Inject permissions
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
@@ -55,8 +56,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Release APK
-        run: |
-          flutter build apk --release --no-tree-shake-icons --dart-define=flutter.compileSdkVersion=35 --dart-define=flutter.minSdkVersion=23
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
