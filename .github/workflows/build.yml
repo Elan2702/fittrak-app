@@ -14,14 +14,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # Install Android 35 and grant full read/write/execute permissions to all tools
-      - name: Install Android Platform 35
-        run: |
-          sudo chown -R $USER:$USER /usr/local/lib/android/sdk
-          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
-          sudo chmod -R 777 /usr/local/lib/android/sdk
-
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -37,21 +29,19 @@ jobs:
           cd ..
           rm -rf temp_app
 
-      - name: Configure Android Project
+      - name: Configure Android Project & Permissions
         run: |
-          echo "sdk.dir=/usr/local/lib/android/sdk" > android/local.properties
-
-          # Set app compileSdk and targetSdk to 35, minSdk to 23
-          sed -i 's/compileSdkVersion .*/compileSdkVersion 35/' android/app/build.gradle || true
-          sed -i 's/compileSdk = .*/compileSdk = 35/' android/app/build.gradle || true
-          sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 35/' android/app/build.gradle || true
-          sed -i 's/targetSdkVersion .*/targetSdkVersion 35/' android/app/build.gradle || true
-          sed -i 's/targetSdk = .*/targetSdk = 35/' android/app/build.gradle || true
+          # Set standard SDK 34 and minSdk 23
+          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/' android/app/build.gradle || true
+          sed -i 's/compileSdk = .*/compileSdk = 34/' android/app/build.gradle || true
+          sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 34/' android/app/build.gradle || true
+          sed -i 's/targetSdkVersion .*/targetSdkVersion 34/' android/app/build.gradle || true
+          sed -i 's/targetSdk = .*/targetSdk = 34/' android/app/build.gradle || true
           sed -i 's/minSdkVersion .*/minSdkVersion 23/' android/app/build.gradle || true
           sed -i 's/minSdk = .*/minSdk = 23/' android/app/build.gradle || true
           sed -i 's/minSdk flutter.minSdkVersion/minSdk 23/' android/app/build.gradle || true
 
-          # Inject permissions
+          # Inject permissions into AndroidManifest
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
