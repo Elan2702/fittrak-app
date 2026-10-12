@@ -37,11 +37,6 @@ jobs:
 
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />\n    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
-      - name: Download Complete App Code
-        run: |
-          curl -sL https://gist.githubusercontent.com/t-ik/2ce8c946b5dc22b7c6c4c921fe7c355c/raw/fittrack_main_v2.dart -o lib/main.dart
-          test -s lib/main.dart
-
       - name: Install dependencies
         run: flutter pub get
 
