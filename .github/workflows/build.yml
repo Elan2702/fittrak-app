@@ -29,9 +29,13 @@ jobs:
           cd ..
           rm -rf temp_app
 
-      - name: Configure SDK & Permissions
+      - name: Update Kotlin, SDK & Permissions
         run: |
-          # Use compileSdk 34 and minSdk 23 for plugin compatibility
+          # Upgrade Kotlin version to 1.9.22 to match plugin dependencies
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/' android/settings.gradle || true
+          sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = '\''1.9.22'\''/' android/build.gradle || true
+
+          # Adjust SDK versions
           sed -i 's/compileSdkVersion .*/compileSdkVersion 34/' android/app/build.gradle || true
           sed -i 's/compileSdk = .*/compileSdk = 34/' android/app/build.gradle || true
           sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 34/' android/app/build.gradle || true
@@ -40,6 +44,8 @@ jobs:
           sed -i 's/minSdkVersion .*/minSdkVersion 23/' android/app/build.gradle || true
           sed -i 's/minSdk = .*/minSdk = 23/' android/app/build.gradle || true
           sed -i 's/minSdk flutter.minSdkVersion/minSdk 23/' android/app/build.gradle || true
+
+          # Inject background and hardware permissions
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
