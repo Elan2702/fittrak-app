@@ -14,11 +14,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # Install Android 35 directly into the exact path Gradle looks for
+      # Fix folder permissions and install Android 35 using sudo
       - name: Install Android Platform 35
         run: |
-          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/usr/local/lib/android/sdk --licenses || true
-          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/usr/local/lib/android/sdk "platforms;android-35" "build-tools;35.0.0"
+          sudo chown -R $USER:$USER /usr/local/lib/android/sdk
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -39,7 +40,7 @@ jobs:
         run: |
           echo "sdk.dir=/usr/local/lib/android/sdk" > android/local.properties
 
-          # Update app build.gradle values
+          # Set app compileSdk and targetSdk to 35, minSdk to 23
           sed -i 's/compileSdkVersion .*/compileSdkVersion 35/' android/app/build.gradle || true
           sed -i 's/compileSdk = .*/compileSdk = 35/' android/app/build.gradle || true
           sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 35/' android/app/build.gradle || true
