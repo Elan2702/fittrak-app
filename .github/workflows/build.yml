@@ -20,7 +20,6 @@ jobs:
           flutter-version: '3.22.x'
           channel: 'stable'
 
-      # Properly create Flutter Android scaffolding
       - name: Generate Android Scaffolding
         run: |
           mkdir temp_app
@@ -30,9 +29,16 @@ jobs:
           cd ..
           rm -rf temp_app
 
-      # Inject required Android permissions for Pedometer and GPS
-      - name: Add Permissions to AndroidManifest
+      - name: Fix Android SDK 35 & Permissions
         run: |
+          sed -i 's/compileSdkVersion .*/compileSdkVersion 35/' android/app/build.gradle || true
+          sed -i 's/compileSdk = .*/compileSdk = 35/' android/app/build.gradle || true
+          sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 35/' android/app/build.gradle || true
+          sed -i 's/targetSdkVersion .*/targetSdkVersion 35/' android/app/build.gradle || true
+          sed -i 's/targetSdk = .*/targetSdk = 35/' android/app/build.gradle || true
+          sed -i 's/minSdkVersion .*/minSdkVersion 23/' android/app/build.gradle || true
+          sed -i 's/minSdk = .*/minSdk = 23/' android/app/build.gradle || true
+          sed -i 's/minSdk flutter.minSdkVersion/minSdk 23/' android/app/build.gradle || true
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
