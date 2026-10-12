@@ -17,10 +17,10 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.x'
+          flutter-version: '3.27.x'
           channel: 'stable'
 
-      - name: Scaffold Android project
+      - name: Scaffold Android Project
         run: |
           mkdir temp_app
           cd temp_app
@@ -29,19 +29,12 @@ jobs:
           cd ..
           rm -rf temp_app
 
-      - name: Configure Android Project & Permissions
+      - name: Add Permissions & Config
         run: |
-          # Set standard SDK 34 and minSdk 23
-          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/' android/app/build.gradle || true
-          sed -i 's/compileSdk = .*/compileSdk = 34/' android/app/build.gradle || true
-          sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 34/' android/app/build.gradle || true
-          sed -i 's/targetSdkVersion .*/targetSdkVersion 34/' android/app/build.gradle || true
-          sed -i 's/targetSdk = .*/targetSdk = 34/' android/app/build.gradle || true
           sed -i 's/minSdkVersion .*/minSdkVersion 23/' android/app/build.gradle || true
           sed -i 's/minSdk = .*/minSdk = 23/' android/app/build.gradle || true
           sed -i 's/minSdk flutter.minSdkVersion/minSdk 23/' android/app/build.gradle || true
 
-          # Inject permissions into AndroidManifest
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
