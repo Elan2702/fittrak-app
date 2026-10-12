@@ -20,15 +20,20 @@ jobs:
           flutter-version: '3.22.x'
           channel: 'stable'
 
-      # Automatically generate android scaffolding, wrapper, and gradle files
-      - name: Recreate Android Project Scaffolding
+      # Properly create Flutter Android scaffolding
+      - name: Generate Android Scaffolding
         run: |
-          mkdir temp_build
-          cd temp_build
-          flutter create --org com.fittrack fittrack_ai
-          cp -rf android ../
+          mkdir temp_app
+          cd temp_app
+          flutter create --org com.fittrack --project-name fittrack_ai .
+          cp -r android ../
           cd ..
-          rm -rf temp_build
+          rm -rf temp_app
+
+      # Inject required Android permissions for Pedometer and GPS
+      - name: Add Permissions to AndroidManifest
+        run: |
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
         run: flutter pub get
