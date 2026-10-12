@@ -34,17 +34,17 @@ jobs:
           cd ..
           rm -rf temp_app
 
-      - name: Configure Compatibility for Older Plugins
+      - name: Configure Android Gradle Settings
         run: |
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
-          # Fix geolocator / pedometer compileSdk & minSdk for subprojects
+          # Set compileSdk and minSdk cleanly across all modules without using afterEvaluate
           cat << 'EOF' >> android/build.gradle
 
-          subprojects {
-              afterEvaluate { project ->
-                  if (project.hasProperty("android")) {
-                      android {
+          subprojects { subproject ->
+              subproject.plugins.whenPluginAdded { plugin ->
+                  if (plugin.class.name.startsWith("com.android.build.gradle")) {
+                      subproject.android {
                           compileSdkVersion 35
                           buildToolsVersion "35.0.0"
                           defaultConfig {
@@ -57,7 +57,7 @@ jobs:
           }
           EOF
 
-          # Inject runtime permissions into manifest
+          # Inject permissions into AndroidManifest
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
