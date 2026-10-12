@@ -329,7 +329,7 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildMealCategory(String category) {
-    final catMeals = _meals.where((m) => m.category == category).toList();
+    final List<MealItem> catMeals = _meals.where((m) => m.category == category).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -394,10 +394,8 @@ class _MainDashboardState extends State<MainDashboard> {
                 ListTile(
                   title: const Text('Sex'),
                   trailing: DropdownButton<String>(
-                    value: _sex,
-                    underline: const SizedBox(),
-                    dropdownColor: const Color(0xFF2C2C2C),
-                    items: [
+                    value: _sex, underline: const SizedBox(), dropdownColor: const Color(0xFF2C2C2C),
+                    items: const [
                       DropdownMenuItem(value: 'Male', child: Text('Male')),
                       DropdownMenuItem(value: 'Female', child: Text('Female')),
                     ],
@@ -441,10 +439,8 @@ class _MainDashboardState extends State<MainDashboard> {
                 children: [
                   const Text('Activity Level', style: TextStyle(fontWeight: FontWeight.bold)),
                   DropdownButton<String>(
-                    isExpanded: true,
-                    value: _activityLevel,
-                    dropdownColor: const Color(0xFF2C2C2C),
-                    items: [
+                    isExpanded: true, value: _activityLevel, dropdownColor: const Color(0xFF2C2C2C),
+                    items: const [
                       DropdownMenuItem(value: 'Sedentary (Little/no exercise)', child: Text('Sedentary (Little/no exercise)')),
                       DropdownMenuItem(value: 'Light (1-3 days/wk)', child: Text('Light (1-3 days/wk)')),
                       DropdownMenuItem(value: 'Moderate (3-5 days/wk)', child: Text('Moderate (3-5 days/wk)')),
@@ -455,10 +451,10 @@ class _MainDashboardState extends State<MainDashboard> {
                   const SizedBox(height: 12),
                   const Text('Fitness Goal', style: TextStyle(fontWeight: FontWeight.bold)),
                   DropdownButton<String>(
-                    isExpanded: true,
-                    value: _fitnessGoal,
-                    dropdownColor: const Color(0xFF2C2C2C),
-                    items: [
+                    isExpanded: true, value: _fitnessGoal, dropdownColor: const Color(0xFF2C2C2C),
+                    items: const [
                       DropdownMenuItem(value: 'Fat Loss (-500 kcal)', child: Text('Fat Loss (-500 kcal)')),
                       DropdownMenuItem(value: 'Maintain Weight', child: Text('Maintain Weight')),
-                      DropdownMenuItem(value: 'Muscle Gain (+300 kcal)', child: Text('Muscl
+                      DropdownMenuItem(value: 'Muscle Gain (+300 kcal)', child: Text('Muscle Gain (+300 kcal)')),
+                    ],
+                    onChanged: (v) => set
