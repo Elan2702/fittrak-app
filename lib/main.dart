@@ -5,23 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() => runApp(const FitTrackApp());
 
-class FitTrackApp extends StatelessWidget {
-  const FitTrackApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'FitTrack Pro',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        primaryColor: const Color(0xFF00E676),
-      ),
-      home: const MainDashboard(),
-    );
-  }
-}
-
+// --- TOP-LEVEL MODELS & REUSABLE HELPERS ---
 class MealItem {
   final String name;
   final String category;
@@ -40,6 +24,70 @@ class MealItem {
   });
 }
 
+Widget buildMetricBox(String label, String value, IconData icon, Color color) {
+  return Container(
+    width: 105,
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1E1E1E),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Column(
+      children: [
+        Icon(icon, color: color, size: 24),
+        const SizedBox(height: 6),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+      ],
+    ),
+  );
+}
+
+Widget buildMacroCol(String title, String val, Color color) {
+  return Column(
+    children: [
+      Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 4),
+      Text(val, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+    ],
+  );
+}
+
+Widget buildEnergyRow(String label, String value, Color color, {bool isBold = false}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(fontSize: 15, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+        Text(value, style: TextStyle(fontSize: isBold ? 18 : 16, fontWeight: FontWeight.bold, color: color)),
+      ],
+    ),
+  );
+}
+
+// --- MAIN APPLICATION ---
+class FitTrackApp extends StatelessWidget {
+  const FitTrackApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'FitTrack Pro',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        primaryColor: const Color(0xFF00E676),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF00E676),
+          secondary: Color(0xFF2979FF),
+        ),
+      ),
+      home: const MainDashboard(),
+    );
+  }
+}
+
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
   @override
@@ -49,6 +97,7 @@ class MainDashboard extends StatefulWidget {
 class _MainDashboardState extends State<MainDashboard> {
   int _currentIndex = 1;
 
+  // Profile
   String _sex = 'Male';
   int _age = 26;
   int _heightCm = 182;
@@ -57,6 +106,7 @@ class _MainDashboardState extends State<MainDashboard> {
   String _activityLevel = 'Moderate (3-5 days/wk)';
   String _fitnessGoal = 'Fat Loss (-500 kcal)';
 
+  // Steps
   int _targetSteps = 10000;
   int _displaySteps = 0;
   int _baselineSteps = -1;
@@ -88,6 +138,7 @@ class _MainDashboardState extends State<MainDashboard> {
     super.dispose();
   }
 
+  // Energy & BMR
   double get _bmr => (_sex == 'Male')
       ? (10 * _weightKg) + (6.25 * _heightCm) - (5 * _age) + 5
       : (10 * _weightKg) + (6.25 * _heightCm) - (5 * _age) - 161;
@@ -129,6 +180,7 @@ class _MainDashboardState extends State<MainDashboard> {
   int get _totalProtein => _meals.fold(0, (s, m) => s + m.protein);
   int get _totalFat => _meals.fold(0, (s, m) => s + m.fat);
 
+  // Indian Food Estimator
   MealItem _estimateIndianFoodMacros(String foodText, String category) {
     String lower = foodText.toLowerCase();
     int qty = 1;
@@ -307,9 +359,9 @@ class _MainDashboardState extends State<MainDashboard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _metricBox('Burned', '${_burnedCalories.round()} kcal', Icons.local_fire_department, Colors.orangeAccent),
-              _metricBox('Distance', '${_distanceKm.toStringAsFixed(2)} km', Icons.straighten, Colors.lightBlueAccent),
-              _metricBox('Progress', '${(prog * 100).toInt()}%', Icons.flag, const Color(0xFF00E676)),
+              buildMetricBox('Burned', '${_burnedCalories.round()} kcal', Icons.local_fire_department, Colors.orangeAccent),
+              buildMetricBox('Distance', '${_distanceKm.toStringAsFixed(2)} km', Icons.straighten, Colors.lightBlueAccent),
+              buildMetricBox('Progress', '${(prog * 100).toInt()}%', Icons.flag, const Color(0xFF00E676)),
             ],
           ),
         ],
@@ -367,9 +419,9 @@ class _MainDashboardState extends State<MainDashboard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _macroCol('Carbs', '${_totalCarbs}g', Colors.orangeAccent),
-                      _macroCol('Protein', '${_totalProtein}g', Colors.lightBlueAccent),
-                      _macroCol('Fats', '${_totalFat}g', Colors.pinkAccent),
+                      buildMacroCol('Carbs', '${_totalCarbs}g', Colors.orangeAccent),
+                      buildMacroCol('Protein', '${_totalProtein}g', Colors.lightBlueAccent),
+                      buildMacroCol('Fats', '${_totalFat}g', Colors.pinkAccent),
                     ],
                   ),
                 ],
@@ -450,30 +502,4 @@ class _MainDashboardState extends State<MainDashboard> {
                   title: const Text('Sex'),
                   trailing: DropdownButton<String>(
                     value: _sex, underline: const SizedBox(), dropdownColor: const Color(0xFF2C2C2C),
-                    items: ['Male', 'Female'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-                    onChanged: (v) => setState(() => _sex = v!),
-                  ),
-                ),
-                const Divider(height: 1, color: Colors.white12),
-                ListTile(
-                  title: const Text('Age'),
-                  trailing: Text('$_age yrs  ›', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
-                  onTap: () => _showNumberPicker('Age', _age, 10, 100, 'yrs', (v) => setState(() => _age = v)),
-                ),
-                const Divider(height: 1, color: Colors.white12),
-                ListTile(
-                  title: const Text('Height'),
-                  trailing: Text('$_heightCm cm  ›', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
-                  onTap: () => _showNumberPicker('Height', _heightCm, 100, 230, 'cm', (v) => setState(() => _heightCm = v)),
-                ),
-                const Divider(height: 1, color: Colors.white12),
-                ListTile(
-                  title: const Text('Current Weight'),
-                  trailing: Text('$_weightKg kg  ›', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
-                  onTap: () => _showNumberPicker('Weight', _weightKg, 30, 200, 'kg', (v) => setState(() => _weightKg = v)),
-                ),
-                const Divider(height: 1, color: Colors.white12),
-                ListTile(
-                  title: const Text('Goal Weight'),
-                  trailing: Text('$_goalWeightKg kg  ›', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.lightBlueAccent)),
-     
+                    items: ['Male', 'Female'].map((v) => DropdownMenuItem(value: v, chil
