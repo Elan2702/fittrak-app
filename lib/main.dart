@@ -44,7 +44,6 @@ class MainDashboard extends StatefulWidget {
 class _MainDashboardState extends State<MainDashboard> {
   int _currentIndex = 0;
 
-  // Metabolic & Profile variables
   String _sex = 'Male';
   int _age = 25;
   double _heightCm = 175.0;
@@ -55,7 +54,6 @@ class _MainDashboardState extends State<MainDashboard> {
   int _targetCalories = 2100;
   int _targetSteps = 10000;
 
-  // Sensor variables
   int _displaySteps = 0;
   int _baselineSteps = -1;
   int _transitIgnoredSteps = 0;
@@ -68,7 +66,6 @@ class _MainDashboardState extends State<MainDashboard> {
   final List<LatLng> _routePoints = [];
   LatLng _currentLocation = const LatLng(12.9716, 77.5946);
 
-  // Nutrition entries
   bool _isAiAnalyzing = false;
   final List<Map<String, dynamic>> _meals = [
     {"name": "Boiled Eggs (3) & Toast", "calories": 310, "protein": 21, "carbs": 26, "fat": 11},
@@ -563,4 +560,7 @@ class _MainDashboardState extends State<MainDashboard> {
                           Text('Burned: -${_burnedStepCalories.round()} kcal', style: const TextStyle(color: Colors.orangeAccent)),
                           Text('Net: $netCalories kcal', style: const TextStyle(color: Colors.grey)),
                         ],
-             
+                      ),
+                    ],
+                  ),
+                  const 
