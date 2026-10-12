@@ -2,71 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'models.dart';
 
 void main() => runApp(const FitTrackApp());
 
-// --- TOP-LEVEL MODELS & REUSABLE HELPERS ---
-class MealItem {
-  final String name;
-  final String category;
-  final int calories;
-  final int carbs;
-  final int protein;
-  final int fat;
-
-  MealItem({
-    required this.name,
-    required this.category,
-    required this.calories,
-    required this.carbs,
-    required this.protein,
-    required this.fat,
-  });
-}
-
-Widget buildMetricBox(String label, String value, IconData icon, Color color) {
-  return Container(
-    width: 105,
-    padding: const EdgeInsets.symmetric(vertical: 14),
-    decoration: BoxDecoration(
-      color: const Color(0xFF1E1E1E),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Column(
-      children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 6),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-      ],
-    ),
-  );
-}
-
-Widget buildMacroCol(String title, String val, Color color) {
-  return Column(
-    children: [
-      Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 4),
-      Text(val, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-    ],
-  );
-}
-
-Widget buildEnergyRow(String label, String value, Color color, {bool isBold = false}) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: TextStyle(fontSize: 15, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
-        Text(value, style: TextStyle(fontSize: isBold ? 18 : 16, fontWeight: FontWeight.bold, color: color)),
-      ],
-    ),
-  );
-}
-
-// --- MAIN APPLICATION ---
 class FitTrackApp extends StatelessWidget {
   const FitTrackApp({super.key});
 
@@ -78,10 +17,6 @@ class FitTrackApp extends StatelessWidget {
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF121212),
         primaryColor: const Color(0xFF00E676),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF00E676),
-          secondary: Color(0xFF2979FF),
-        ),
       ),
       home: const MainDashboard(),
     );
@@ -97,7 +32,6 @@ class MainDashboard extends StatefulWidget {
 class _MainDashboardState extends State<MainDashboard> {
   int _currentIndex = 1;
 
-  // Profile
   String _sex = 'Male';
   int _age = 26;
   int _heightCm = 182;
@@ -106,7 +40,6 @@ class _MainDashboardState extends State<MainDashboard> {
   String _activityLevel = 'Moderate (3-5 days/wk)';
   String _fitnessGoal = 'Fat Loss (-500 kcal)';
 
-  // Steps
   int _targetSteps = 10000;
   int _displaySteps = 0;
   int _baselineSteps = -1;
@@ -138,7 +71,6 @@ class _MainDashboardState extends State<MainDashboard> {
     super.dispose();
   }
 
-  // Energy & BMR
   double get _bmr => (_sex == 'Male')
       ? (10 * _weightKg) + (6.25 * _heightCm) - (5 * _age) + 5
       : (10 * _weightKg) + (6.25 * _heightCm) - (5 * _age) - 161;
@@ -180,45 +112,6 @@ class _MainDashboardState extends State<MainDashboard> {
   int get _totalProtein => _meals.fold(0, (s, m) => s + m.protein);
   int get _totalFat => _meals.fold(0, (s, m) => s + m.fat);
 
-  // Indian Food Estimator
-  MealItem _estimateIndianFoodMacros(String foodText, String category) {
-    String lower = foodText.toLowerCase();
-    int qty = 1;
-    final match = RegExp(r'\b(\d+)\b').firstMatch(lower);
-    if (match != null) qty = int.tryParse(match.group(1)!) ?? 1;
-
-    int cal = 150, p = 5, c = 25, f = 4;
-    if (lower.contains('roti') || lower.contains('chapati')) {
-      cal = 100 * qty; p = 3 * qty; c = 20 * qty; f = 1 * qty;
-    } else if (lower.contains('paratha')) {
-      cal = 260 * qty; p = 5 * qty; c = 32 * qty; f = 12 * qty;
-    } else if (lower.contains('rice') || lower.contains('chawal')) {
-      cal = 200 * qty; p = 4 * qty; c = 44 * qty; f = 1 * qty;
-    } else if (lower.contains('biryani')) {
-      cal = 420 * qty; p = 18 * qty; c = 50 * qty; f = 16 * qty;
-    } else if (lower.contains('idli')) {
-      cal = 65 * qty; p = 2 * qty; c = 12 * qty; f = 1 * qty;
-    } else if (lower.contains('dosa')) {
-      cal = 160 * qty; p = 4 * qty; c = 24 * qty; f = 6 * qty;
-    } else if (lower.contains('dal') || lower.contains('sambar')) {
-      cal = 140 * qty; p = 8 * qty; c = 20 * qty; f = 3 * qty;
-    } else if (lower.contains('paneer')) {
-      cal = 290 * qty; p = 18 * qty; c = 8 * qty; f = 22 * qty;
-    } else if (lower.contains('chicken')) {
-      cal = 240 * qty; p = 28 * qty; c = 2 * qty; f = 12 * qty;
-    } else if (lower.contains('egg')) {
-      cal = 78 * qty; p = 6 * qty; c = 1 * qty; f = 5 * qty;
-    } else if (lower.contains('curd')) {
-      cal = 100 * qty; p = 4 * qty; c = 6 * qty; f = 4 * qty;
-    } else if (lower.contains('tea') || lower.contains('chai')) {
-      cal = 90 * qty; p = 3 * qty; c = 10 * qty; f = 3 * qty;
-    } else {
-      cal = 160 * qty; p = 6 * qty; c = 24 * qty; f = 5 * qty;
-    }
-
-    return MealItem(name: foodText, category: category, calories: cal, carbs: c, protein: p, fat: f);
-  }
-
   void _showAddMealSheet() {
     final foodCtrl = TextEditingController();
     String cat = 'Breakfast';
@@ -258,7 +151,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   label: const Text('Calculate Macros & Add Meal', style: TextStyle(fontWeight: FontWeight.bold)),
                   onPressed: () {
                     if (foodCtrl.text.trim().isNotEmpty) {
-                      setState(() => _meals.add(_estimateIndianFoodMacros(foodCtrl.text.trim(), cat)));
+                      setState(() => _meals.add(estimateIndianFood(foodCtrl.text.trim(), cat)));
                       Navigator.pop(ctx);
                     }
                   },
@@ -359,9 +252,9 @@ class _MainDashboardState extends State<MainDashboard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              buildMetricBox('Burned', '${_burnedCalories.round()} kcal', Icons.local_fire_department, Colors.orangeAccent),
-              buildMetricBox('Distance', '${_distanceKm.toStringAsFixed(2)} km', Icons.straighten, Colors.lightBlueAccent),
-              buildMetricBox('Progress', '${(prog * 100).toInt()}%', Icons.flag, const Color(0xFF00E676)),
+              metricBox('Burned', '${_burnedCalories.round()} kcal', Icons.local_fire_department, Colors.orangeAccent),
+              metricBox('Distance', '${_distanceKm.toStringAsFixed(2)} km', Icons.straighten, Colors.lightBlueAccent),
+              metricBox('Progress', '${(prog * 100).toInt()}%', Icons.flag, const Color(0xFF00E676)),
             ],
           ),
         ],
@@ -419,9 +312,9 @@ class _MainDashboardState extends State<MainDashboard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      buildMacroCol('Carbs', '${_totalCarbs}g', Colors.orangeAccent),
-                      buildMacroCol('Protein', '${_totalProtein}g', Colors.lightBlueAccent),
-                      buildMacroCol('Fats', '${_totalFat}g', Colors.pinkAccent),
+                      macroCol('Carbs', '${_totalCarbs}g', Colors.orangeAccent),
+                      macroCol('Protein', '${_totalProtein}g', Colors.lightBlueAccent),
+                      macroCol('Fats', '${_totalFat}g', Colors.pinkAccent),
                     ],
                   ),
                 ],
@@ -501,5 +394,71 @@ class _MainDashboardState extends State<MainDashboard> {
                 ListTile(
                   title: const Text('Sex'),
                   trailing: DropdownButton<String>(
-                    value: _sex, underline: const SizedBox(), dropdownColor: const Color(0xFF2C2C2C),
-                    items: ['Male', 'Female'].map((v) => DropdownMenuItem(value: v, chil
+                    value: _sex,
+                    underline: const SizedBox(),
+                    dropdownColor: const Color(0xFF2C2C2C),
+                    items: [
+                      DropdownMenuItem(value: 'Male', child: Text('Male')),
+                      DropdownMenuItem(value: 'Female', child: Text('Female')),
+                    ],
+                    onChanged: (v) => setState(() => _sex = v!),
+                  ),
+                ),
+                const Divider(height: 1, color: Colors.white12),
+                ListTile(
+                  title: const Text('Age'),
+                  trailing: Text('$_age yrs ›', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
+                  onTap: () => _showNumberPicker('Age', _age, 10, 100, 'yrs', (v) => setState(() => _age = v)),
+                ),
+                const Divider(height: 1, color: Colors.white12),
+                ListTile(
+                  title: const Text('Height'),
+                  trailing: Text('$_heightCm cm ›', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
+                  onTap: () => _showNumberPicker('Height', _heightCm, 100, 230, 'cm', (v) => setState(() => _heightCm = v)),
+                ),
+                const Divider(height: 1, color: Colors.white12),
+                ListTile(
+                  title: const Text('Current Weight'),
+                  trailing: Text('$_weightKg kg ›', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
+                  onTap: () => _showNumberPicker('Weight', _weightKg, 30, 200, 'kg', (v) => setState(() => _weightKg = v)),
+                ),
+                const Divider(height: 1, color: Colors.white12),
+                ListTile(
+                  title: const Text('Goal Weight'),
+                  trailing: Text('$_goalWeightKg kg ›', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.lightBlueAccent)),
+                  onTap: () => _showNumberPicker('Goal Weight', _goalWeightKg, 30, 200, 'kg', (v) => setState(() => _goalWeightKg = v)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            color: const Color(0xFF1E1E1E),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Activity Level', style: TextStyle(fontWeight: FontWeight.bold)),
+                  DropdownButton<String>(
+                    isExpanded: true,
+                    value: _activityLevel,
+                    dropdownColor: const Color(0xFF2C2C2C),
+                    items: [
+                      DropdownMenuItem(value: 'Sedentary (Little/no exercise)', child: Text('Sedentary (Little/no exercise)')),
+                      DropdownMenuItem(value: 'Light (1-3 days/wk)', child: Text('Light (1-3 days/wk)')),
+                      DropdownMenuItem(value: 'Moderate (3-5 days/wk)', child: Text('Moderate (3-5 days/wk)')),
+                      DropdownMenuItem(value: 'Very Active (6-7 days/wk)', child: Text('Very Active (6-7 days/wk)')),
+                    ],
+                    onChanged: (v) => setState(() => _activityLevel = v!),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Fitness Goal', style: TextStyle(fontWeight: FontWeight.bold)),
+                  DropdownButton<String>(
+                    isExpanded: true,
+                    value: _fitnessGoal,
+                    dropdownColor: const Color(0xFF2C2C2C),
+                    items: [
+                      DropdownMenuItem(value: 'Fat Loss (-500 kcal)', child: Text('Fat Loss (-500 kcal)')),
+                      DropdownMenuItem(value: 'Maintain Weight', child: Text('Maintain Weight')),
+                      DropdownMenuItem(value: 'Muscle Gain (+300 kcal)', child: Text('Muscl
